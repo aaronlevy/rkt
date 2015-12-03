@@ -34,6 +34,7 @@ $(call forward-vars,$(FLY_ACI_GEN_MANIFEST), \
 $(FLY_ACI_GEN_MANIFEST): $(FLY_ACI_SRC_MANIFEST) | $(FLY_ACI_TMPDIR) $(FLY_ACI_DIRS) $(FLY_ACIROOTFSDIR)/flavor
 	$(VQ) \
 	set -e; \
+	mkdir -p $(FLY_ACIDIR)/rootfs/rkt/status; \
 	$(call vb,vt,MANIFEST,fly) \
 	sed \
 		-e 's/@RKT_STAGE1_VERSION@/$(FLY_ACI_VERSION)/g' \
