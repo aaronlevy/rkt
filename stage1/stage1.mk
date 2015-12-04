@@ -56,7 +56,7 @@
 
 STAGE1_FLAVORS := $(call commas-to-spaces,$(RKT_STAGE1_ALL_FLAVORS))
 # filter out the fly flavor - it is special
-STAGE1_FLAVORS := $(filter-out,fly,$(STAGE1_FLAVORS))
+STAGE1_FLAVORS := $(filter-out fly,$(STAGE1_FLAVORS))
 STAGE1_BUILT_FLAVORS := $(call commas-to-spaces,$(RKT_STAGE1_FLAVORS))
 # filter out the fly flavor - it is special
 STAGE1_FLAVORS := $(filter-out fly,$(STAGE1_FLAVORS))
