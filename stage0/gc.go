@@ -65,6 +65,7 @@ type mount struct {
 	id         int
 	parentId   int
 	mountPoint string
+	mode       string
 }
 
 type mounts []*mount
@@ -73,9 +74,15 @@ type mounts []*mount
 // parent. This works by pushing all child mounts up to the front. Parent
 // mounts are halted once they encounter a child. The actual sequential order
 // of the mounts doesn't matter; only that children are in front of parents.
-func (m mounts) Less(i, j int) bool { return m[i].id != m[j].parentId }
-func (m mounts) Len() int           { return len(m) }
-func (m mounts) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+// func (m mounts) Less(i, j int) bool { return m[i].id != m[j].parentId && m[i].parentId > m[j].parentId }
+func (m mounts) Less(i, j int) bool {
+	isNotParent := m[i].id != m[j].parentId
+	hasHigherParent := m[i].parentId > m[j].parentId
+	isDescendant := strings.HasPrefix(m[i].mountPoint, m[j].mountPoint)
+	return (isNotParent && hasHigherParent) || isDescendant
+}
+func (m mounts) Len() int      { return len(m) }
+func (m mounts) Swap(i, j int) { m[i], m[j] = m[j], m[i] }
 
 // getMountsForPrefix parses mi (/proc/PID/mountinfo) and returns mounts for path prefix
 func getMountsForPrefix(path string, mi io.Reader) (mounts, error) {
@@ -87,10 +94,11 @@ func getMountsForPrefix(path string, mi io.Reader) (mounts, error) {
 			parentId   int
 			discard    string
 			mountPoint string
+			mode       string
 		)
 
-		_, err := fmt.Sscanf(sc.Text(), "%d %d %s %s %s",
-			&mountId, &parentId, &discard, &discard, &mountPoint)
+		_, err := fmt.Sscanf(sc.Text(), "%d %d %s %s %s %s %s",
+			&mountId, &parentId, &discard, &discard, &mountPoint, &discard, &mode)
 		if err != nil {
 			return nil, err
 		}
@@ -100,6 +108,7 @@ func getMountsForPrefix(path string, mi io.Reader) (mounts, error) {
 				id:         mountId,
 				parentId:   parentId,
 				mountPoint: mountPoint,
+				mode:       mode,
 			}
 			podMounts = append(podMounts, mnt)
 		}
@@ -123,6 +132,15 @@ func ForceMountGC(path, uuid string) error {
 	mnts, err := getMountsForPrefix(path, mi)
 	if err != nil {
 		return fmt.Errorf("error getting mounts for pod %s from mountinfo: %v", uuid, err)
+	}
+
+	for i := len(mnts) - 1; i >= 0; i -= 1 {
+		mnt := mnts[i]
+		if mnt.mode != "-" && strings.Contains(mnt.mode, "shared") {
+			if err := syscall.Mount("", mnt.mountPoint, "", syscall.MS_PRIVATE, ""); err != nil {
+				return fmt.Errorf("could not remount at %v: %v", mnt.mountPoint, err)
+			}
+		}
 	}
 
 	for _, mnt := range mnts {

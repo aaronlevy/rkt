@@ -19,12 +19,22 @@ import (
 	"testing"
 )
 
-var mountinfo = `8 7 0:1 / /my/mount/prefix/blah ignore this stuff
-7 6 0:2 / /my/mount/prefix/foo bar
-6 4 4.5 / /my/mount/prefix/foo car
-9 7 0:3 / /my/mount/prefix/foo rar
-2 6 0:5 / /my/mount/prefix/foo scar
-5 0 0:18 / /not/my/mount/prefix sly dog`
+var mountinfo = `71 21 0:39 / /var/lib/rkt rw,relatime shared:26 -
+116 71 0:45 / /my/mount/prefix/rootfs rw,relatime shared:32 -
+121 116 0:46 / /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs rw,relatime shared:63 -
+146 145 0:27 / /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/sys/fs/cgroup/systemd rw,nosuid,nodev,noexec,relatime shared:6 -
+145 144 0:26 / /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/sys/fs/cgroup rw,nosuid,nodev,noexec shared:5 -
+144 121 0:17 / /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/sys rw,relatime shared:3 -
+180 121 0:19 /nixos /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/rootfs ro,relatime shared:1 -
+184 183 0:27 / /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/rootfs/sys/fs/cgroup/systemd rw,nosuid,nodev,noexec,relatime shared:6 -
+183 182 0:26 / /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/rootfs/sys/fs/cgroup rw,nosuid,nodev,noexec shared:5 -
+182 180 0:17 / /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/rootfs/sys rw,relatime shared:3 -
+209 206 0:45 / /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/rootfs/my/mount/prefix/rootfs rw,relatime shared:32 -
+219 218 0:27 / /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/rootfs/my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/sys/fs/cgroup/systemd rw,nosuid,nodev,noexec,relatime shared:6 -
+218 217 0:26 / /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/rootfs/my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/sys/fs/cgroup rw,nosuid,nodev,noexec shared:5 -
+217 210 0:17 / /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/rootfs/my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/sys rw,relatime shared:3 -
+210 209 0:46 / /my/mount/prefix/rootfs/opt/stage2/busybox/rootfs/rootfs/my/mount/prefix/rootfs/opt/stage2/busybox/rootfs rw,relatime shared:63 -
+`
 
 func TestMountOrdering(t *testing.T) {
 	tests := []struct {
@@ -33,8 +43,9 @@ func TestMountOrdering(t *testing.T) {
 		shouldPass bool
 	}{
 		{
-			prefix:     "/my/mount/prefix",
-			ids:        []int{2, 9, 8, 7, 6},
+			prefix: "/my/mount/prefix",
+			ids:    []int{219, 218, 217, 210, 209, 184, 183, 182, 146, 145, 180, 144, 121, 116},
+			//ids:        []int{2, 9, 8, 7, 6},
 			shouldPass: true,
 		},
 	}
@@ -51,12 +62,15 @@ func TestMountOrdering(t *testing.T) {
 			return
 		}
 
+		mountIds := make([]int, len(tt.ids))
+		match := true
 		for j, mnt := range mnts {
-			if mnt.id != tt.ids[j] {
-				t.Errorf("test #%d: problem with mount ordering; mount at index %d is %d not %d",
-					i, j, mnt.id, tt.ids[j])
-				return
-			}
+			mountIds[j] = mnt.id
+			match = match && (mnt.id == tt.ids[j])
+		}
+		if !match {
+			t.Errorf("test #%d: problem with mount ordering; expected\n%v, got\n%v", i, tt.ids, mountIds)
+			return
 		}
 	}
 }
